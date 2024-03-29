@@ -7,6 +7,28 @@ from object.crud import download_file_and_upload_to_s3, get_objects
 from bucket.encryption import set_bucket_encryption, read_bucket_encryption
 import argparse
 
+def check_versioning(bucket_name):
+    s3 = init_client()  # Assuming this initializes your S3 client
+    response = s3.get_bucket_versioning(Bucket=bucket_name)
+    if 'Status' in response:
+        print(f"Versioning status for bucket '{bucket_name}': {response['Status']}")
+    else:
+        print(f"Versioning status for bucket '{bucket_name}': Not enabled")
+
+def list_file_versions(bucket_name, file_key):
+    s3 = init_client()  # Assuming this initializes your S3 client
+    response = s3.list_object_versions(Bucket=bucket_name, Prefix=file_key)
+    print(f"Versions for file '{file_key}' in bucket '{bucket_name}':")
+    for version in response.get('Versions', []):
+        print(f"Version ID: {version['VersionId']}, Last modified: {version['LastModified']}, Is latest: {'Latest' in version}")
+
+def upload_latest_version(bucket_name, file_key, new_file_path):
+    s3 = init_client()  # Assuming this initializes your S3 client
+    response = s3.list_object_versions(Bucket=bucket_name, Prefix=file_key)
+    latest_version = max(response['Versions'], key=lambda x: x['LastModified'])
+    s3.upload_file(new_file_path, bucket_name, file_key, ExtraArgs={'VersionId': latest_version['VersionId']})
+    print(f"Uploaded latest version of file '{file_key}' to bucket '{bucket_name}'")
+    
 parser = argparse.ArgumentParser(
     description="CLI program that helps with S3 buckets.",
     usage='''
